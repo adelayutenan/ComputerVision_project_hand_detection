@@ -42,10 +42,14 @@ export default function Quiz() {
   const [score, setScore] = useState(0)
   const [seconds, setSeconds] = useState(10)
   const [finished, setFinished] = useState(false)
+  const [gameReady, setGameReady] = useState(false) // State untuk menandai game sudah siap (timer boleh jalan)
 
   // Leaderboard
   const [leaderboard, setLeaderboard] = useState(loadLeaderboard())
   const [nameInput, setNameInput] = useState('')
+  const [playerName, setPlayerName] = useState('') // Nama player yang disimpan sebelum main
+  const [showNameInput, setShowNameInput] = useState(false) // State untuk tampilkan input nama
+  const [leaderboardMessage, setLeaderboardMessage] = useState('') // Message untuk leaderboard update
 
   // Stream state
   const [streamError, setStreamError] = useState(false)
@@ -108,14 +112,21 @@ export default function Quiz() {
     return () => clearInterval(interval)
   }, [])
 
-  // Timer for normal mode - only run when camera is active
+  // Set gameReady ketika kamera aktif (untuk pertama kali)
   useEffect(() => {
-    if (mode !== 'normal' || finished || !started || !stats.camera_active) return
+    if (started && !finished && stats.camera_active && !gameReady) {
+      setGameReady(true)
+    }
+  }, [started, finished, stats.camera_active, gameReady])
+
+  // Timer for normal mode - only run when camera is active AND game is ready
+  useEffect(() => {
+    if (mode !== 'normal' || finished || !started || !stats.camera_active || !gameReady) return
     setSeconds(10)
-  }, [questionIdx, mode, finished, started, stats.camera_active])
+  }, [questionIdx, mode, finished, started, stats.camera_active, gameReady])
 
   useEffect(() => {
-    if (mode !== 'normal' || finished || !started || !stats.camera_active) return
+    if (mode !== 'normal' || finished || !started || !stats.camera_active || !gameReady) return
     const id = setInterval(() => {
       setSeconds((s) => {
         if (s <= 1) {
@@ -128,7 +139,7 @@ export default function Quiz() {
     }, 1000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questionIdx, mode, finished, started, stats.camera_active])
+  }, [questionIdx, mode, finished, started, stats.camera_active, gameReady])
 
   // Keyboard: Space to capture
   useEffect(() => {
@@ -196,7 +207,15 @@ export default function Quiz() {
   }
 
   function handleStartGame() {
+    // Tampilkan input nama terlebih dahulu
+    setShowNameInput(true)
     setMode('normal')
+  }
+
+  function handleStartGameWithName() {
+    // Mulai game setelah nama diinput
+    if (!nameInput.trim()) return
+    setPlayerName(nameInput.trim())
     setStarted(true)
     setFinished(false)
     setQuestionIdx(0)
@@ -204,6 +223,9 @@ export default function Quiz() {
     setSeconds(10)
     setTarget(randomLetter())
     setPrediction({ label: '-', conf: 0 })
+    setShowNameInput(false)
+    setGameReady(false) // Reset gameReady, akan aktif otomatis saat kamera nyala
+    setLeaderboardMessage('') // Reset message
   }
 
   function handleStartPractice() {
@@ -214,6 +236,7 @@ export default function Quiz() {
     setScore(0)
     setTarget(randomLetter())
     setPrediction({ label: '-', conf: 0 })
+    setGameReady(false) // Practice mode tidak perlu timer, tapi tetap reset
   }
 
   function handleRestart() {
@@ -223,25 +246,102 @@ export default function Quiz() {
     setScore(0)
     setSeconds(10)
     setPrediction({ label: '-', conf: 0 })
+    setShowNameInput(false)
+    setGameReady(false)
+  }
+
+  function handlePlayAgain() {
+    // Main lagi dengan nama yang sama
+    setStarted(true)
+    setFinished(false)
+    setQuestionIdx(0)
+    setScore(0)
+    setSeconds(10)
+    setTarget(randomLetter())
+    setPrediction({ label: '-', conf: 0 })
+    setGameReady(false) // Reset, timer akan mulai setelah kamera aktif
+    setLeaderboardMessage('') // Reset message
+  }
+
+  function handleChangeName() {
+    // Ganti nama dan kembali ke awal
+    setPlayerName('')
+    setNameInput('')
+    setStarted(false)
+    setFinished(false)
+    setQuestionIdx(0)
+    setScore(0)
+    setSeconds(10)
+    setPrediction({ label: '-', conf: 0 })
+    setGameReady(false)
+    setLeaderboardMessage('') // Reset message
   }
 
   function handleSubmitScore() {
-    if (!nameInput.trim()) return
+    if (!playerName.trim()) return
 
-    const newEntry = {
-      name: nameInput.trim(),
-      score,
-      date: new Date().toISOString()
+    const trimmedName = playerName.trim()
+    
+    // Check apakah nama sudah ada di leaderboard
+    const existingEntryIndex = leaderboard.findIndex(
+      entry => entry.name.toLowerCase() === trimmedName.toLowerCase()
+    )
+    
+    let updated
+    let message = ''
+    
+    if (existingEntryIndex !== -1) {
+      // Nama sudah ada - hanya update jika score baru lebih tinggi
+      const existingScore = leaderboard[existingEntryIndex].score
+      
+      if (score > existingScore) {
+        // Score baru lebih tinggi - update entry
+        updated = [...leaderboard]
+        updated[existingEntryIndex] = {
+          name: trimmedName,
+          score,
+          date: new Date().toISOString()
+        }
+        message = `🎉 New High Score! Meningkat dari ${existingScore} → ${score}`
+      } else if (score === existingScore) {
+        // Score sama
+        message = `Score sama dengan rekor sebelumnya (${existingScore}). Coba tingkatkan lagi!`
+        setLeaderboardMessage(message)
+        return // Keluar tanpa update
+      } else {
+        // Score baru lebih rendah
+        message = `Score kamu ${score}. Rekor terbaik: ${existingScore}. Main lagi untuk pecahkan rekor!`
+        setLeaderboardMessage(message)
+        return // Keluar tanpa update
+      }
+    } else {
+      // Nama belum ada - tambahkan entry baru
+      const newEntry = {
+        name: trimmedName,
+        score,
+        date: new Date().toISOString()
+      }
+      updated = [...leaderboard, newEntry]
+      message = `✅ Score pertama kamu masuk Leaderboard!`
     }
-
-    const updated = [...leaderboard, newEntry]
+    
+    // Sort by score (highest first) dan ambil top 10
+    const sorted = updated
       .sort((a, b) => b.score - a.score)
       .slice(0, 10)
 
-    setLeaderboard(updated)
-    saveLeaderboard(updated)
-    setNameInput('')
+    setLeaderboard(sorted)
+    saveLeaderboard(sorted)
+    setLeaderboardMessage(message)
   }
+
+  // Auto submit ketika game selesai (Normal Mode)
+  useEffect(() => {
+    if (finished && mode === 'normal' && playerName && score >= 0) {
+      handleSubmitScore()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished, mode, playerName, score])
 
   const sortedLeaderboard = useMemo(
     () => [...leaderboard].sort((a, b) => b.score - a.score),
@@ -380,32 +480,80 @@ export default function Quiz() {
             className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6"
           >
             <h3 className="text-2xl font-bold text-emerald-200 mb-4">🎉 Game Selesai!</h3>
+            <p className="text-slate-300 mb-2">Player: <span className="font-semibold text-white">{playerName}</span></p>
             <p className="text-3xl font-extrabold text-white mb-4">Score: {score}/100</p>
+            
+            {mode === 'normal' && leaderboardMessage && (
+              <div className={`mb-4 p-3 rounded-lg border ${
+                leaderboardMessage.includes('New High Score') || leaderboardMessage.includes('pertama')
+                  ? 'bg-emerald-500/10 border-emerald-400/30'
+                  : 'bg-amber-500/10 border-amber-400/30'
+              }`}>
+                <p className={`text-sm text-center font-medium ${
+                  leaderboardMessage.includes('New High Score') || leaderboardMessage.includes('pertama')
+                    ? 'text-emerald-200'
+                    : 'text-amber-200'
+                }`}>
+                  {leaderboardMessage}
+                </p>
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <button
+                onClick={handlePlayAgain}
+                className="flex-1 px-4 py-2 rounded-lg bg-emerald-500 text-white font-medium hover:bg-emerald-600"
+              >
+                🎮 Main Lagi
+              </button>
+              <button
+                onClick={handleChangeName}
+                className="flex-1 px-4 py-2 rounded-lg bg-indigo-500 text-white font-medium hover:bg-indigo-600"
+              >
+                🔄 Ganti Nama
+              </button>
+            </div>
+          </Motion.div>
+        )}
+
+        {/* Name Input Screen (Normal Mode) */}
+        {showNameInput && !started && !finished && (
+          <Motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-6 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/5 p-6 max-w-md mx-auto"
+          >
+            <h3 className="text-2xl font-bold text-emerald-200 mb-2">🎮 Normal Mode</h3>
+            <p className="text-slate-300 text-sm mb-4">
+              Masukkan nama kamu untuk mulai bermain. Score kamu akan otomatis masuk ke Leaderboard!
+            </p>
             
             <div className="space-y-3">
               <div>
+                <label className="block text-sm text-slate-300 mb-2">Nama Player</label>
                 <input
                   type="text"
-                  placeholder="Masukkan nama Anda"
+                  placeholder="Masukkan nama kamu..."
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSubmitScore()}
-                  className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-2 text-white placeholder:text-slate-400"
+                  onKeyDown={(e) => e.key === 'Enter' && handleStartGameWithName()}
+                  className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-3 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  autoFocus
                 />
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={handleSubmitScore}
-                  disabled={!nameInput.trim()}
-                  className="flex-1 px-4 py-2 rounded-lg bg-emerald-500 text-white font-medium hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => { setShowNameInput(false); setNameInput(''); }}
+                  className="flex-1 px-4 py-2 rounded-lg bg-slate-500/10 border border-slate-400/50 text-slate-200 hover:bg-slate-500/20 transition"
                 >
-                  Submit ke Leaderboard
+                  Batal
                 </button>
                 <button
-                  onClick={handleRestart}
-                  className="flex-1 px-4 py-2 rounded-lg bg-indigo-500 text-white font-medium hover:bg-indigo-600"
+                  onClick={handleStartGameWithName}
+                  disabled={!nameInput.trim()}
+                  className="flex-1 px-4 py-2 rounded-lg bg-emerald-500 text-white font-medium hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
-                  Main Lagi
+                  Mulai Game
                 </button>
               </div>
             </div>
@@ -413,23 +561,42 @@ export default function Quiz() {
         )}
 
         {/* Start Screen */}
-        {!started && !finished && (
+        {!started && !finished && !showNameInput && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <button
               onClick={handleStartGame}
               className="p-6 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20 transition"
             >
               <h3 className="text-xl font-bold text-emerald-200 mb-2">🎮 Normal Mode</h3>
-              <p className="text-sm text-emerald-100/80">10 soal • Timer • High score</p>
+              <p className="text-sm text-emerald-100/80">10 soal • Timer • Masuk Leaderboard</p>
             </button>
             <button
               onClick={handleStartPractice}
               className="p-6 rounded-2xl border-2 border-indigo-500/50 bg-indigo-500/10 hover:bg-indigo-500/20 transition"
             >
               <h3 className="text-xl font-bold text-indigo-200 mb-2">📚 Practice Mode</h3>
-              <p className="text-sm text-indigo-100/80">Tanpa batas • Pilih huruf</p>
+              <p className="text-sm text-indigo-100/80">Tanpa batas • Tanpa skor</p>
             </button>
           </div>
+        )}
+
+        {/* Ready Notification - Kamera belum aktif */}
+        {started && !finished && !gameReady && mode === 'normal' && (
+          <Motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⏸️</span>
+              <div>
+                <p className="text-amber-200 font-medium">Timer Belum Dimulai</p>
+                <p className="text-amber-100/70 text-sm">
+                  Tekan tombol <strong>Start</strong> untuk menyalakan kamera, timer akan otomatis dimulai!
+                </p>
+              </div>
+            </div>
+          </Motion.div>
         )}
 
         {/* Main Game Area */}

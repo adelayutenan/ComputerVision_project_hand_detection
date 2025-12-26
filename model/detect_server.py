@@ -154,15 +154,26 @@ async def detect(req: DetectRequest) -> DetectResponse:
         )
     
     # Get all detections and filter by confidence threshold
-    CONFIDENCE_THRESHOLD = 0.3  # Same as realtime_detection.py
+    CONFIDENCE_THRESHOLD = 0.2  # Lowered untuk lebih mudah mendeteksi
     boxes_obj = results.boxes
     confidences = boxes_obj.conf.cpu().numpy() if hasattr(boxes_obj.conf, "cpu") else boxes_obj.conf.numpy()
+    
+    # DEBUG: Print all detections
+    print(f"\n🔍 === DETECTION DEBUG ===")
+    print(f"Total detections from YOLO: {len(confidences)}")
+    for i, conf in enumerate(confidences):
+        cls_idx = int(boxes_obj[i].cls.item())
+        letter = CLASS_NAMES.get(cls_idx, "?")
+        print(f"  [{i}] Class: {letter} (idx={cls_idx}), Confidence: {conf:.3f}")
     
     # Filter boxes by confidence
     valid_indices = [i for i, conf in enumerate(confidences) if conf >= CONFIDENCE_THRESHOLD]
     
+    print(f"Valid detections (conf >= {CONFIDENCE_THRESHOLD}): {len(valid_indices)}")
+    
     if not valid_indices:
         # No detections above threshold
+        print(f"❌ No detections above threshold {CONFIDENCE_THRESHOLD}\n")
         return DetectResponse(
             letter="-",
             confidence=0.0,
@@ -211,6 +222,10 @@ async def detect(req: DetectRequest) -> DetectResponse:
         Keypoint(x=float(cx), y=float(cy - (h * 0.20))),  # Top
     ]
     bones: List[Tuple[int, int]] = [(0, 1), (1, 2)]
+    
+    # DEBUG: Print successful detection
+    print(f"✅ DETECTED: Letter '{letter}' with confidence {confidence:.3f}")
+    print(f"   Box: x={bx:.3f}, y={by:.3f}, w={bw:.3f}, h={bh:.3f}\n")
  
     return DetectResponse(
         letter=letter,

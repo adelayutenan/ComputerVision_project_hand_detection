@@ -45,8 +45,14 @@ function App() {
         >
           <div className="mx-auto max-w-screen-xl px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link to="/" className="group">
-                <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent group-hover:from-blue-300 group-hover:to-indigo-300 transition-all">
+              <Link to="/" className="group inline-block">
+                <span 
+                  className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent group-hover:from-blue-300 group-hover:to-indigo-300 transition-all inline-block px-1 py-1"
+                  style={{ 
+                    lineHeight: '1.2',
+                    display: 'inline-block'
+                  }}
+                >
                   InSignia
                 </span>
               </Link>

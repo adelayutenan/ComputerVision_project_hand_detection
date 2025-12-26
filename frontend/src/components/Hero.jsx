@@ -57,7 +57,7 @@ export default function Hero({ onGetStarted, actionsVisible }) {
           initial={{ opacity: 0, y: '35vh', scale: 1 }}
           animate={intro ? { opacity: 1, y: '35vh', scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-200"
+          className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-200 px-4 py-2"
           style={{
             backgroundImage: 'linear-gradient(90deg,#60a5fa,#818cf8,#60a5fa)',
             backgroundSize: '200% 200%',
@@ -66,6 +66,8 @@ export default function Hero({ onGetStarted, actionsVisible }) {
             color: 'transparent',
             animation: 'gradient-move 10s ease-in-out infinite',
             fontFamily: 'Orbitron, Inter, system-ui',
+            lineHeight: '1.2',
+            display: 'inline-block',
           }}
         >
           InSignia

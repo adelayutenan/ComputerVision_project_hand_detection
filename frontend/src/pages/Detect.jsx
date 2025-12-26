@@ -123,13 +123,21 @@ export default function Detect() {
     ctx.fillStyle = 'rgba(34,197,94,1)' // green-500 untuk background label
     
     boxes.forEach((box) => {
-      const bx = (box.x || 0) * width
-      const by = (box.y || 0) * height
-      const bw = (box.w || 0) * width
-      const bh = (box.h || 0) * height
+      // Koordinat asli dari backend (normalized 0-1)
+      const boxX = box.x || 0
+      const boxY = box.y || 0
+      const boxW = box.w || 0
+      const boxH = box.h || 0
+      
+      // FLIP koordinat X karena video di-mirror
+      // x_mirrored = 1 - (x_original + width_original)
+      const mirroredX = (1 - boxX - boxW) * width
+      const by = boxY * height
+      const bw = boxW * width
+      const bh = boxH * height
       
       // Draw bounding box
-      ctx.strokeRect(bx, by, bw, bh)
+      ctx.strokeRect(mirroredX, by, bw, bh)
       
       // Draw label dengan huruf dan confidence
       if (letter && letter !== '-') {
@@ -143,29 +151,45 @@ export default function Detect() {
         const textHeight = 30
         
         // Background label (kotak hijau)
-        const labelX = bx
+        const labelX = mirroredX
         const labelY = by - textHeight - 8
         ctx.fillStyle = 'rgba(34,197,94,1)'
         ctx.fillRect(labelX, labelY, textWidth + 16, textHeight + 4)
         
-        // Text label (putih)
+        // Text label (putih) - flip horizontally untuk mengatasi mirror canvas
+        ctx.save()
+        // Posisi text original adalah (labelX + 8, labelY + 24)
+        // Translate ke center of text, flip, lalu gambar centered
+        const textStartX = labelX + 8
+        const textBaselineY = labelY + 24
+        ctx.translate(textStartX + textWidth / 2, textBaselineY)
+        ctx.scale(-1, 1)
         ctx.fillStyle = 'white'
-        ctx.fillText(label, labelX + 8, labelY + 24)
+        ctx.textBaseline = 'alphabetic'
+        ctx.fillText(label, -textWidth / 2, 0)
+        ctx.restore()
       }
     })
   }, [])
 
   const captureAndDetectOnce = useCallback(async () => {
     const videoEl = videoRef.current
-    if (!videoEl || !isCameraOn) return
+    if (!videoEl || !isCameraOn) {
+      console.log('⚠️ Cannot capture: videoEl=', !!videoEl, 'isCameraOn=', isCameraOn)
+      return
+    }
 
     const captureCanvas = captureCanvasRef.current
-    if (!captureCanvas) return
+    if (!captureCanvas) {
+      console.log('⚠️ Cannot capture: captureCanvas not found')
+      return
+    }
 
     const width = videoEl.videoWidth || 640
     const height = videoEl.videoHeight || 480
 
     if (width === 0 || height === 0) {
+      console.log('⚠️ Video dimensions not ready:', width, 'x', height)
       return
     }
 
@@ -182,21 +206,25 @@ export default function Detect() {
     const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.8)
 
     try {
+      console.log('🔍 Sending detection request to:', DETECT_API_URL)
       const res = await fetch(DETECT_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: dataUrl }),
       })
 
+      console.log('📡 Response status:', res.status)
+
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`)
       }
 
       const payload = await res.json()
+      console.log('✅ Detection result:', payload)
       setPrediction(payload)
       drawOverlay(payload)
     } catch (err) {
-      console.error('Detection request failed:', err)
+      console.error('❌ Detection request failed:', err)
       setError('Gagal memproses deteksi di server Python. Pastikan server berjalan dan CORS diizinkan.')
       setIsDetecting(false)
       if (detectTimerRef.current) {
@@ -207,18 +235,24 @@ export default function Detect() {
   }, [drawOverlay, isCameraOn])
 
   const startDetection = useCallback(async () => {
+    console.log('🚀 Starting detection...')
+    console.log('Camera on:', isCameraOn)
+    
     if (!isCameraOn) {
+      console.log('Camera is off, starting camera first...')
       await startCamera()
     }
     setError('')
 
     setIsDetecting(true)
+    console.log('✅ Detection mode activated, will capture every 300ms')
 
     if (detectTimerRef.current) {
       clearInterval(detectTimerRef.current)
     }
 
     detectTimerRef.current = setInterval(() => {
+      console.log('⏰ Timer tick - calling captureAndDetectOnce()')
       captureAndDetectOnce()
     }, 300)
   }, [captureAndDetectOnce, isCameraOn, startCamera])
