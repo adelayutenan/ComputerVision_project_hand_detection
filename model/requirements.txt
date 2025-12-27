@@ -4,7 +4,15 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
 python-multipart==0.0.6
+
+# Ultralytics YOLO CPU mode
 ultralytics==8.1.0
+
 numpy==1.24.3
-opencv-python==4.8.1.78
+opencv-python-headless==4.8.1.78
 Pillow==10.1.0
+
+# Torch CPU ONLY
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
