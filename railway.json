@@ -19,7 +19,16 @@
     "model": {
       "src": "model",
       "buildCommand": "pip install -r requirements.txt",
-      "startCommand": "python detect_server.py"
+      "startCommand": "python detect_server.py",
+      "nixpacks": {
+        "config": {
+          "phases": {
+            "setup": {
+              "nixPkgs": ["libGL", "glib", "stdenv.cc.cc.lib"]
+            }
+          }
+        }
+      }
     }
   }
 }
