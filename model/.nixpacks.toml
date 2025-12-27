@@ -8,3 +8,6 @@ aptPkgs = [
   "libxrender1",
   "libgomp1"
 ]
+
+[start]
+cmd = "python detect_server.py"
