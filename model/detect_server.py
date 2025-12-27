@@ -21,8 +21,6 @@ from PIL import Image
 from ultralytics import YOLO  # type: ignore[import]
 import numpy as np  # type: ignore[import]
 
-cv2.setNumThreads(0)
-
 app = FastAPI(title="InSignia SIBI Detection API")
 
 origins = ["*"]
