@@ -1,19 +1,27 @@
+import os
+# SET INI DI BARIS PALING ATAS SEBELUM IMPORT APAPUN
+os.environ["OPENCV_IO_ENABLE_JASPER"] = "0"
+os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "0"
+os.environ["OPENCV_IO_ENABLE_GDAL"] = "0"
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ["ULTRALYTICS_NO_GUI"] = "1"
+
+# Baru kemudian import lainnya
+from fastapi import FastAPI, HTTPException
+# ... sisa kode tetap
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Tuple
 import base64
 import io
-import os
 from pathlib import Path
 from PIL import Image
 from ultralytics import YOLO  # type: ignore[import]
 import numpy as np  # type: ignore[import]
 
 cv2.setNumThreads(0)
-
-os.environ["QT_QPA_PLATFORM"] = "offscreen"
-os.environ["ULTRALYTICS_NO_GUI"] = "1"
 
 app = FastAPI(title="InSignia SIBI Detection API")
 
