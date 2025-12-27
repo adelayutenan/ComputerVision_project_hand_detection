@@ -10,6 +10,8 @@ from PIL import Image
 from ultralytics import YOLO  # type: ignore[import]
 import numpy as np  # type: ignore[import]
 
+cv2.setNumThreads(0)
+
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["ULTRALYTICS_NO_GUI"] = "1"
 
