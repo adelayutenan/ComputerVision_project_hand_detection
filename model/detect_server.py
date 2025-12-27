@@ -10,6 +10,9 @@ from PIL import Image
 from ultralytics import YOLO  # type: ignore[import]
 import numpy as np  # type: ignore[import]
 
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ["ULTRALYTICS_NO_GUI"] = "1"
+
 app = FastAPI(title="InSignia SIBI Detection API")
 
 origins = ["*"]
