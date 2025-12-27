@@ -70,7 +70,7 @@ app.add_middleware(
 )
 
 # Global variables
-MODEL_PATH = Path(__file__).parent / "model" / "best.pt"
+MODEL_PATH = Path(__file__).parent / "best.pt"
 CONFIDENCE_THRESHOLD = 0.3
 
 # Camera dan model
